@@ -217,17 +217,14 @@ public class HeapDB implements DB, Iterable<Record> {
 					bf.write(bitmapBlock, blockmapBuffer);
 				}
 				// index maintenance
-				// YOUR CODE HERE
-				
-				for (int i=0; i< indexes.length; i++) {
-					if (indexes[i]!=null) {
-						// maintain index[i], 
-						// indexes[i].insert( <<column value from record>>, blockNum );
+				// YOUR CODE HERE _______________________________
+				for (int i = 0; i < indexes.length; i++) {
+					if (indexes[i] != null) {
+						indexes[i].insert(((IntField) rec.get(i)).getValue(), blockNum); // call insert method on index
 					}
 				}
-
 				return true;
-
+				// -----------------------------------------------
 			}
 		}
 
@@ -270,15 +267,18 @@ public class HeapDB implements DB, Iterable<Record> {
 							bf.write(bitmapBlock, blockmapBuffer);
 						}
 							// index maintenance
-							// YOUR CODE HERE
-						for (int i=0; i< indexes.length; i++) {
+							// YOUR CODE HERE -----------------------------------
+						for (int i=0; i < indexes.length; i++) {
 							if (indexes[i]!=null) {
-								// maintain index[i], 
+								// maintain index[i],
 								// indexes[i].delete(<<column value>>, blockNum );
+								indexes[i].delete(((IntField) rec.get(i)).getValue(), blockNum);
+								//--------------------------------------------------------
 							}
 						}
 
 						return true;
+
 					}
 				}
 			}
@@ -311,23 +311,34 @@ public class HeapDB implements DB, Iterable<Record> {
 
 		List<Record> result = new ArrayList<Record>();
 
-		// YOUR CODE HERE
+		// YOUR CODE HERE-----------------------------------
 				if (indexes[fieldNum]==null) { 
 					// no index on this column.  do linear scan
-					// add all records into "result"
+					// add all records into "result"d
+
 					for (Record rec : this) {
-						// ...
+						//====================================
+						if(((IntField) rec.get(fieldNum)).getValue() == key) {
+							result.add(rec);
+						//=====================================
+						}
 				    }
 					
 				} else {
 					// do index lookup
 					// returns a list of block numbers
-					// call lookupInBlock to get the actual records 
-					// add records into "result'
+					// call lookupInBlock to get the actual records
+					// add records into "result"
+					List<Integer> blockNos = indexes[fieldNum].lookup(key);
+					for(Integer i: blockNos) {
+						List<Record> records = lookupInBlock(fieldNum, key, i);
+						for (Record rec : records) {
+							result.add(rec);
+						}
+					}
 				}
-
-		// replace the following line with your return statement
-		throw new UnsupportedOperationException();
+		
+		return result;
 	}
 
 	// Perform a linear search in the block with the given blockNum
@@ -412,16 +423,31 @@ public class HeapDB implements DB, Iterable<Record> {
 			throw new IllegalArgumentException("index is null");
 		}
 
+
 		// YOUR CODE HERE
 		// for each record in the DB, you will need to insert its
 		// index column value and the block number
-		
-		// HINT:  see method diagnosticPrint for example of how to 
+
+		// HINT:  see method diagnosticPrint for example of how to
 		// iterate of all data blocks in table and all rows
 		// in each block
-		
-	
-		throw new UnsupportedOperationException();
+		//============================================================
+
+		Record rec = schema.blankRecord();
+		bf.read(bitmapBlock, blockmapBuffer); // read the bitmap block
+		for (int blockNum = bitmapBlock + 1; blockNum <= bf.getLastBlockIndex(); blockNum++) { // read all blocks in file
+
+			bf.read(blockNum, buffer);
+			for (int recNum = 0; recNum < recMap.size(); recNum++) { // read all records in that block
+				if (recMap.getBit(recNum)) {
+					int loc = recordLocation(recNum);
+					rec.deserialize(buffer.buffer, loc);
+					index.insert(((IntField) rec.get(fieldNum)).getValue(), blockNum);
+				}
+			}
+		}
+
+		//===============================================================
 	}
 
 	/**
